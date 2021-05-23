@@ -11,6 +11,10 @@ used to estimate model efficacy
 ```{r}
 library(AppliedPredictiveModeling)
 data(ChemicalManufacturingProcess)
+library(caret)
+chemical.df <- data.frame(ChemicalManufacturingProcess)
+chemical.ZeroVar <- nearZeroVar(fingerprints.df, names = TRUE)
+predictors <- dim(chemical.df)[2] - length(chemical.ZeroVar)
 ```
 
 
