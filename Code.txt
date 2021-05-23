@@ -1,0 +1,245 @@
+---
+
+date: "5/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      include = TRUE,
+                      results = "hide",
+                      error = F,
+                      warning = F,
+                      message = F)
+
+
+if(!require(pacman)) install.packages("pacman")
+pacman::p_load(dplyr, tidyr,ggplot2,Hmsic, reshape2, scales,rio,dataexplorer,  ggplot2)
+ 
+```
+###1.	(10 points) The soybean data can also be found at the UC Irvine Machine Learning Repository. Data were collected to predict disease in 683 soybeans. The 35 predictors are mostly categorical and include information on the environmental conditions (e.g., temperature, precipitation) and plant conditions (e.g., left spots, mold growth). The outcome labels consist of 19 distinct classes. The data can be loaded via:
+library(mlbench)
+data(Soybean)
+# Use ?Soybean for details
+####a.	Investigate the frequency distributions for the categorical predictors. Are any of the distributions degenerate in the ways discussed earlier in this chapter?
+
+A degenerate distribution is one in which the random variable is not actually random, as it has zero variance and need to be removed before building predictive models to prevent bias. 
+
+ 
+  
+```{r}
+library(mlbench)
+data(Soybean)
+str(Soybean)
+library(caret)
+
+
+par(mfrow = c(3,3))# Create a 3 x 3 plotting matrix
+for(i in 2:ncol(Soybean)) {
+  plot(Soybean[i], main = colnames(Soybean[i]))
+}
+
+# generate a dataframe of frequency distributions for all columns. check a few categories at random.
+
+
+#To detect the zero variance use the function nearZeroVar() and will see the frequencies of those variables.
+
+zeroVar <- nearZeroVar(Soybean) #this function shows that columns  19, 26, 28 have zero variance and are degenerate. 
+
+```
+
+
+####b.	Roughly 18 % of the data are missing. Are there particular predictors that are more likely to be missing? Is the pattern of missing data related to the classes?
+
+```{r}
+
+install.packages("DataExplorer")
+library("DataExplorer")
+plot_missing(Soybean)
+
+colSums(is.na(Soybean))
+#particular predictors that are more likely to be missing?:lodging, hail, germ, seed.tmt, seed.discolor, lead.shread, leaf.mild, shriveling
+
+```
+
+```{r}
+
+library(VIM)
+sb_class <- Soybean%>% mutate(nul=rowSums(is.na(Soybean)))%>%
+                      group_by(Class)%>% summarize(miss=sum(nul)) %>%filter(miss!=0)
+sb_class
+#phytophthora-rot has the maximum of missing values. there is pattern in missing values by category class.
+```
+
+###c.	Develop a strategy for handling missing data, either by eliminating predictors or imputation.
+```{r}
+install.packages("DMwR2");
+library(DMwR2)
+library(caret) 
+sb <- knnImputation(Soybean[,-1])
+colSums(is.na(sb))
+
+
+# predictors with missing values with more than 5% values are suggested to be dropped, k nearest neighbors   imputation  
+```
+ 
+### 2.	(10 points) The caret package contains a QSAR data set from Mente and Lombardo (2005). Here, the ability of a chemical to permeate the blood-brain barrier was experimentally determined for 208 compounds. 134 descriptors were measured for each compound.
+a.	Start R and use these commands to load the data:
+library(caret)
+data(BloodBrain)
+ use ?BloodBrain to see more details
+The numeric outcome is contained in the vector logBBB while the predic-
+tors are in the data frame bbbDescr.
+### b.	Do any of the individual predictors have degenerate distributions?
+A degenerate distribution is one in which the random variable is not actually random, as it has zero variance and need to be removed before building predictive models to prevent bias. 
+To detect the zero variance use the function nearZeroVar() and will see the frequencies of those variables.
+bbzeroVar <- nearZeroVar(bbbDescr) This code shows that columns 3,16,17,22,25,50,60 are degenerate
+
+```{r}
+install.packages("caret")
+library(caret)
+data(BloodBrain)
+
+str(bbbDescr)
+ 
+#A degenerate distribution is one in which the random variable is not actually random, as it has zero variance and need to be removed before building predictive models to prevent bias. 
+#To detect the zero variance use the function nearZeroVar() and will see the frequencies of those variables.
+
+bbzeroVar <- nearZeroVar(bbbDescr) #This code shows that columns 3,16,17,22,25,50,60 are degenerate
+```
+
+###c.	Generally speaking, are there strong relationships between the predictor data? If so, how could correlations in the predictor set be reduced? Does this have a dramatic effect on the number of predictors available for modeling?
+
+```{r}
+
+#zerovariance only checks for discrete values. for  continuous variables, we have to test correlation If the correlation is greater than 0.75, then we delete the predictor with a larger average correlation.
+library(corrplot)
+corrplot( cor( bbbDescr ), order="hclust" )
+# Find which predictors we can elliminate since they have correlations that are "too large":
+
+highCorr = findCorrelation( cor( bbbDescr ), cutoff=0.75 )
+
+bbbDescr_independent = bbbDescr[,-highCorr]
+
+corrplot( cor(bbbDescr_independent) ) # this matrix has no values > cutoff=0.75 above
+
+
+```
+
+
+
+
+####4.	(15 points) Consider the permeability data set described in Sect. 1.4. of the textbook. The objective for these data is to use the predictors to model compounds’ permeability.
+####a.	What data splitting method(s) would you use for these data? Explain.
+
+I would split the data into a training and a test set, pre-process the data, and tune a PLS model. H 
+
+In order to pre-process the data, i would center and scale
+
+# Part (b):
+####b.	Using tools described in this chapter, provide code for implementing your approach(es).
+
+```{r}
+ 
+#install.packages("AppliedPredictiveModeling")
+library(AppliedPredictiveModeling)
+data(permeability)
+
+
+# Filter out the predictors that have low frequencies using the nearZeroVar function from the caret package.
+
+library(caret)
+fingerprints.df <- data.frame(fingerprints)
+fingerprints.ZeroVar <- nearZeroVar(fingerprints.df, names = TRUE)
+predictors <- dim(fingerprints.df)[2] - length(fingerprints.ZeroVar)
+
+#There are now only 388 predictors left in the model. 
+
+ zero_cols = nearZeroVar( fingerprints )
+print( sprintf("Found %d zero variance columns from %d",length(zero_cols), dim(fingerprints)[2] ) )
+fingerprints = fingerprints[,-zero_cols] # drop these zero variance columns 
+
+# Split this data into training and testing sets:
+#
+training = createDataPartition( permeability, p=0.8 )
+
+fingerprints_training = fingerprints[training$Resample1,]
+permeability_training = permeability[training$Resample1]
+
+fingerprints_testing = fingerprints[-training$Resample1,]
+permeability_testing = permeability[-training$Resample1]
+
+```
+
+#### 5.	(20 points) Partial least squares was used to model the yield of a chemical manufacturing process (Sect. 1.4). The data can be found in the AppliedPredictiveModeling package and can be loaded.
+
+###The objective of this analysis is to find the number of PLS components that yields the optimal R2 value. PLS models with 1 through 10 components were each evaluated using five repeats of 10-fold cross-validation
+	
+ PLS finds components that summarize the variation of the predictors while simultaneously
+requiring these components to have maximum correlation with the response. PLS is a compromise between the objectives of predictor space dimension reduction and a predictive relationship with the response. PLS can be viewed as a supervised dimension reduction procedure;
+PCR is an unsupervised procedure	
+
+if 10-fold cross-validation was repeated five times, 50 different held-out sets would be
+used to estimate model efficacy
+```{r}
+library(AppliedPredictiveModeling)
+data(ChemicalManufacturingProcess)
+```
+	
+
+
+###a.	Using the “one-standard error” method, what number of PLS components provides the most parsimonious model?
+
+if two predictors are highly correlated, this implies that they are measuring the same underlying information. Removing one should not compromise the performance of the model and might lead to a more precise and interpretable model.
+
+one-standard error of RMSE
+```{r}
+ #A parsimonious model is a model that has the highest level of explanation/prediction with as few predictor variables (x) as possible. The One Standard Error Rule can be used to compare models with different numbers of parameters in order to select the most parsimonious model with low error. To use, find model with minimum error, then select the simplest model whose mean falls within 1 standard deviation of the minimum
+
+```
+
+
+
+####b.	Compute the tolerance values for this example. If a 10 % loss in R2 is acceptable, then what is the optimal number of PLS components?
+```{r}
+ 
+```
+###c.	Several other models with varying degrees of complexity were trained and tuned and the results are presented in Figure below. If the goal is to select the model that optimizes R2, then which model(s) would you choose, and why?
+
+```{r}
+install.packages("pls")
+library(pls)
+library(caret)
+ 
+
+ 
+
+```
+
+
+d.	Prediction time, as well as model complexity are other factors to consider when selecting the optimal model(s). Given each model’s prediction time, model complexity, and R2 estimates, which model(s) would you choose, and why?
+
+```{r}
+
+```
+
+6.	(20 points) Brodnjak-Vonina et al. (2005) develop a methodology for food laboratories to determine the type of oil from a sample. In their procedure, they used a gas chromatograph (an instrument that separates chemicals in a sample) to measure seven different fatty acids in an oil. These measurements would then be used to predict the type of oil in a food sample. To create their model, they used 96 samples of seven types of oils.
+
+These data can be found in the caret package using data(oil). The oil types are contained in a factor variable called oilType. The types are pumpkin (coded as A), sunflower (B), peanut (C), olive (D), soybean (E), rapeseed (F) and corn (G).
+a.	Use the sample function in base R to create a completely random sample of 60 oils. How closely do the frequencies of the random sample match the original samples? Repeat this procedure several times to understand the variation in the sampling process.
+b.	Use the caret package function createDataPartition to create a stratified random sample. How does this compare to the completely random samples?
+c.	With such a small sample size, what are the options for determining performance of the model? Should a test set be used?
+d.	One method for understanding the uncertainty of a test set is to use a confidence interval. To obtain a confidence interval for the overall accu- racy, the based R function binom.test can be used. It requires the user to input the number of samples and the number correctly classified to calculate the interval. For example, suppose a test set sample of 20 oil samples was set aside and 76 were used for model training. For this test set size and a model that is about 80 % accurate (16 out of 20 correct), the confidence interval would be computed using
+binom.test(16, 20)
+             Exact binomial test
+data: 16 and 20
+number of successes = 16, number of trials = 20, p-value = 0.01182       alternative hypothesis: true probability of success is not equal to 0.5                   95 percent confidence interval:
+0.563386 0.942666 
+sample estimates: 
+probability of success
+0.8
+In this case, the width of the 95% confidence interval is 37.9%. Try different samples sizes and accuracy rates to understand the trade-off between the uncertainty in the results, the model performance, and the test set size.
+```{r}
+
+```
+
